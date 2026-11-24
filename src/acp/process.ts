@@ -11,7 +11,7 @@ export interface AcpProcessOptions {
   command: string;
   args: string[];
   cwd: string;
-  env: NodeJS.ProcessEnv;
+  env?: NodeJS.ProcessEnv;
   onUpdate: (update: Record<string, unknown>) => void;
   onPermission: (request: Record<string, unknown>) => Promise<string | null>;
   onExit: () => void;
@@ -21,6 +21,7 @@ type RpcId = string | number;
 type Model = { id: string; name: string };
 type SessionModels = { models: Model[]; currentModel?: string };
 type PendingRequest = {
+  method: string;
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timer?: NodeJS.Timeout;
@@ -32,7 +33,7 @@ const MAX_FRAME_CHARS = 8 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 20_000;
 const CANCEL_TIMEOUT_MS = 2_000;
 
-function record(value: unknown): value is Record<string, unknown> {
+export function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 function rpcId(value: unknown): value is RpcId {
@@ -101,12 +102,9 @@ export class AcpProcess {
   private async initialize(): Promise<SessionModels> {
     this.state = 'starting';
     try {
-      if (!this.options.env.GEMINI_API_KEY?.trim()) {
-        throw new Error('Set GEMINI_API_KEY before starting the Antigravity ACP session.');
-      }
       this.child = spawn(this.options.command, this.options.args, {
         cwd: this.options.cwd,
-        env: this.options.env,
+        ...(this.options.env === undefined ? {} : { env: this.options.env }),
         stdio: 'pipe',
         shell: false,
         windowsHide: true,
@@ -145,16 +143,12 @@ export class AcpProcess {
       ) {
         throw new Error('The ACP agent returned an unsupported protocol version.');
       }
-      // Antigravity accepts this explicit method even when it omits it from authMethods.
-      // Never try personal OAuth or rely on the CLI's previously selected account.
-      await this.request('authenticate', { methodId: 'gemini-api-key' });
       const session = await this.request('session/new', { cwd: this.options.cwd, mcpServers: [] });
       if (!record(session) || typeof session.sessionId !== 'string' || !session.sessionId) {
         throw new Error('The ACP agent returned an invalid session.');
       }
       this.sessionId = session.sessionId;
       this.readModels(session);
-      await this.selectApprovalMode(session);
       this.state = 'ready';
       return this.snapshot();
     } catch (error) {
@@ -199,44 +193,6 @@ export class AcpProcess {
       this.modelConfigId = undefined;
       this.legacyModels = false;
     }
-  }
-
-  private async selectApprovalMode(session: Record<string, unknown>): Promise<void> {
-    const option = configOption(session.configOptions, 'mode');
-    const modes = record(session.modes) ? session.modes : undefined;
-    const available = option
-      ? choices(option.options)
-      : Array.isArray(modes?.availableModes)
-        ? modes.availableModes.flatMap((mode) =>
-            record(mode) && typeof mode.id === 'string'
-              ? [{ id: mode.id, name: String(mode.name ?? mode.id) }]
-              : [],
-          )
-        : [];
-    const safe = ['default', 'approval-required', 'ask'].find((id) =>
-      available.some((mode) => mode.id === id),
-    );
-    if (!safe) {
-      const current = option?.currentValue ?? modes?.currentModeId;
-      if (typeof current === 'string' && /^(?:auto[_-]?edit|yolo)$/i.test(current)) {
-        throw new Error(
-          'The ACP agent is in an unsafe mode and offers no approval-required alternative.',
-        );
-      }
-      // Without an advertised mode, preserve the CLI's startup policy. The launcher
-      // uses a fresh profile and sandbox; do not invent an unsupported mode option.
-      return;
-    }
-    if (option) {
-      const id = configId(option);
-      if (!id) throw new Error('The ACP agent returned an invalid session mode option.');
-      const result = await this.request('session/set_config_option', {
-        sessionId: this.sessionId,
-        configId: id,
-        value: safe,
-      });
-      if (record(result)) this.readModels(result);
-    } else await this.request('session/set_mode', { sessionId: this.sessionId, modeId: safe });
   }
 
   async setModel(id: string): Promise<void> {
@@ -320,7 +276,7 @@ export class AcpProcess {
       return Promise.reject(new Error('ACP process is closed.'));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      const pending: PendingRequest = { resolve, reject };
+      const pending: PendingRequest = { method, resolve, reject };
       if (timeout) {
         pending.timer = setTimeout(
           () => this.stop(new Error(`ACP ${method} timed out.`)),
@@ -387,7 +343,15 @@ export class AcpProcess {
     if (pending.timer) clearTimeout(pending.timer);
     if (record(message.error)) {
       const code = typeof message.error.code === 'number' ? message.error.code : -32603;
-      pending.reject(new Error(`ACP request failed (code ${code}).`));
+      // ACP reserves -32000 for AuthRequired. Other failures, including 403,
+      // do not establish that the CLI needs a login and must not trigger one.
+      pending.reject(
+        new Error(
+          pending.method === 'session/new' && code === -32000
+            ? 'agy 需要登录。请在本机 CLI 按当前登录方式完成登录，然后重新打开会话。'
+            : `ACP request failed (code ${code}).`,
+        ),
+      );
     } else if ('result' in message) pending.resolve(message.result);
     else pending.reject(new Error('The ACP agent returned an invalid response.'));
   }

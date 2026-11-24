@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { readFile, chmod } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 
 const pkg = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -14,18 +14,6 @@ const options = {
   minifySyntax: true,
 };
 await build({ ...options, entryPoints: ['src/index.ts'], outfile: 'dist/index.js' });
-await build({
-  ...options,
-  stdin: {
-    contents: "import { runLogin } from './src/auth.ts'; await runLogin();",
-    resolveDir: process.cwd(),
-    sourcefile: 'login-entry.ts',
-    loader: 'ts',
-  },
-  outfile: 'dist/login.js',
-  banner: { js: '#!/usr/bin/env node' },
-});
-await chmod('dist/login.js', 0o755);
 // The Harness browser loader supplies React and owns the lifetime of each plugin factory.
 await build({
   entryPoints: ['src/client.jsx'],

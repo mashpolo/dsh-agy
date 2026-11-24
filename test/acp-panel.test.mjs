@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { runInNewContext } from 'node:vm';
+import { build } from 'esbuild';
 import { setImmediate as tick } from 'node:timers/promises';
 import { AcpSession, postAcp } from '../src/acp-session-client.js';
 
@@ -16,25 +18,49 @@ const opened = {
   currentModel: 'model-1',
   cwd: '/work',
 };
+test('browser plugin registers only the Antigravity session header action', async () => {
+  const bundle = await build({
+    entryPoints: ['src/client.jsx'],
+    bundle: true,
+    format: 'cjs',
+    platform: 'browser',
+    write: false,
+    loader: { '.css': 'text' },
+    external: ['react', 'react-dom'],
+  });
+  const module = { exports: {} };
+  runInNewContext(bundle.outputFiles[0].text, { module, require: () => ({}) });
+  const slots = [];
+  module.exports.apply({
+    slots: {
+      inject: (_scope, register) => register(),
+      register: ({ name, id }) => slots.push([name, id]),
+    },
+  });
+  assert.deepEqual(slots, [['conversation.session.header.actions', 'antigravity-acp']]);
+});
+
 test('multi-turn ACP uses one session, serialized polling and permission responses', async () => {
   const calls = [];
   const release = deferred();
   const turns = [
     [
       { seq: 1, type: 'text', text: '正在' },
-      { seq: 2, type: 'text', text: '读取' },
+      { seq: 2, type: 'thought', text: '内部过程' },
+      { seq: 3, type: 'text', text: '读取' },
       {
-        seq: 3,
+        seq: 4,
         type: 'permission',
         permissionId: 'p1',
         title: '读取文件',
         options: [{ id: 'yes', label: '允许' }],
       },
+      { seq: 5, type: 'tool', text: '调用过程' },
     ],
-    [{ seq: 4, type: 'done' }],
+    [{ seq: 6, type: 'done' }],
     [
-      { seq: 5, type: 'text', text: '完成' },
-      { seq: 6, type: 'done' },
+      { seq: 7, type: 'text', text: '完成' },
+      { seq: 8, type: 'done' },
     ],
   ];
   let waiting = 0;
@@ -43,7 +69,7 @@ test('multi-turn ACP uses one session, serialized polling and permission respons
     if (body.action === 'open') return opened;
     if (body.action === 'poll') {
       assert.equal(waiting++, 0);
-      if (body.after === 3) await release.promise;
+      if (body.after === 5) await release.promise;
       waiting--;
       return { events: turns.shift() };
     }
@@ -57,11 +83,19 @@ test('multi-turn ACP uses one session, serialized polling and permission respons
   await Promise.all([session.send('第一轮', 'model-1'), session.send('重复', 'model-1')]);
   await tick();
   assert.equal(session.state.entries.find((x) => x.type === 'text').text, '正在读取');
+  assert.deepEqual(
+    session.state.entries.map((e) => e.type),
+    ['user', 'text', 'permission'],
+  );
   await Promise.all([session.permission('p1', 'yes'), session.permission('p1', 'yes')]);
   assert.equal(calls.filter((c) => c.action === 'permission').length, 1);
   release.resolve();
   await new Promise((done) => setTimeout(done, 10));
   assert.equal(session.state.running, false);
+  assert.deepEqual(
+    calls.filter((c) => c.action === 'poll').map((c) => c.after),
+    [0, 5],
+  );
   await session.send('继续', 'model-1');
   await tick();
   assert.deepEqual(
@@ -176,10 +210,10 @@ test('opening without a Harness session explains how to select a workspace', asy
   assert.equal(session.state.session, null);
 });
 
-test('CLI credential setup guidance reaches the panel on an open error', async (t) => {
-  const message = '请先为 agy 配置 API key。';
+test('CLI startup errors reach the panel when the executable is unavailable', async (t) => {
+  const message = '找不到 agy 可执行文件。';
   t.mock.method(globalThis, 'fetch', async () =>
-    Response.json({ error: message }, { status: 403 }),
+    Response.json({ error: message }, { status: 503 }),
   );
   const session = new AcpSession();
   assert.equal(await session.open('harness-session'), false);

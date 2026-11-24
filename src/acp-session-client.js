@@ -33,7 +33,7 @@ const initial = {
 
 function append(entries, event) {
   const previous = entries.at(-1);
-  if ((event.type === 'text' || event.type === 'thought') && previous?.type === event.type) {
+  if (event.type === 'text' && previous?.type === 'text') {
     entries[entries.length - 1] = { ...previous, text: previous.text + (event.text ?? '') };
   } else {
     entries.push(
@@ -65,7 +65,6 @@ export class AcpSession {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   };
-  snapshot = () => this.state;
   update(change) {
     if (this.disposed) return;
     this.state = { ...this.state, ...change };
@@ -111,7 +110,7 @@ export class AcpSession {
     if (this.state.session) return;
     return this.command('open', async () => {
       if (typeof harnessSessionId !== 'string' || !harnessSessionId.trim())
-        throw new Error('请先打开已选择工作目录的 Harness 会话，再打开 ACP。');
+        throw new Error('请先打开已选择工作目录的 Harness 会话，再打开 Antigravity。');
       const session = await this.request({ action: 'open', harnessSessionId });
       if (!session.id) throw new Error('ACP 服务未返回会话 ID');
       if (this.disposed) {
@@ -179,16 +178,18 @@ export class AcpSession {
         );
         if (controller.signal.aborted) return;
         if (!Array.isArray(data.events)) throw new Error('ACP 服务未返回事件列表');
-        const entries = [...this.state.entries];
+        let entries;
         let done = false;
         for (const event of data.events) {
           if (!Number.isSafeInteger(event.seq)) throw new Error('ACP 事件缺少序号');
           if (event.seq <= this.after) continue;
           this.after = event.seq;
+          if (!['text', 'permission', 'done', 'error'].includes(event.type)) continue;
+          entries ??= [...this.state.entries];
           append(entries, event);
           if (event.type === 'done' || event.type === 'error') done = true;
         }
-        if (data.events.length)
+        if (entries)
           this.update({
             entries: done ? expirePermissions(entries) : entries,
             running: !done,

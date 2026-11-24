@@ -8,8 +8,7 @@ const packageVersion = JSON.parse(
 
 const scenario = process.argv[2] ?? 'modern';
 const sessionId = 'fixture-session';
-let authenticated = false;
-let safeMode = false;
+let phase = 'new';
 let promptId;
 let turn = 0;
 const replies = new Map();
@@ -58,7 +57,7 @@ function configOptions() {
       ],
     },
   ];
-  if (scenario === 'dangerous-empty') options[1].options = [];
+  if (scenario === 'native-mode-empty') options[1].options = [];
   if (scenario === 'unreported-mode') return options.slice(0, 1);
   return options;
 }
@@ -71,6 +70,8 @@ async function handle(message) {
   }
   const { id, method, params } = message;
   if (method === 'initialize') {
+    assert.equal(phase, 'new');
+    phase = 'initialized';
     assert.equal(params.protocolVersion, 2);
     assert.deepEqual(params.clientCapabilities, {});
     assert.equal(typeof params.clientInfo.name, 'string');
@@ -84,22 +85,24 @@ async function handle(message) {
     });
     return;
   }
-  if (method === 'authenticate') {
-    assert.equal(params.methodId, 'gemini-api-key');
-    assert.equal(process.env.GEMINI_API_KEY, 'fixture-key');
-    if (scenario === 'auth-error') {
-      send({ id, error: { code: -32000, message: 'fixture-key is secret' } });
-      return;
-    }
-    authenticated = true;
-    result(id, {});
-    return;
-  }
   if (method === 'session/new') {
-    assert(authenticated);
+    assert.equal(phase, 'initialized');
+    phase = 'session';
     assert.equal(params.cwd, process.cwd());
     assert.deepEqual(params.mcpServers, []);
-    if (scenario === 'unreported-mode') safeMode = true; // This fixture starts with approval-required defaults.
+    if (scenario === 'inherited-env') {
+      assert.equal(process.env.ACP_PROCESS_TEST_INHERITED, 'fixture inherited environment');
+    }
+    const sessionErrors = {
+      'auth-required': { code: -32000, message: 'Authentication required fixture-secret' },
+      forbidden: { code: 403, message: 'Authentication required but forbidden fixture-secret' },
+      'auth-denied': { code: -32001, message: 'Authentication rejected fixture-secret' },
+      'internal-auth-text': { code: -32603, message: 'Authentication required fixture-secret' },
+    };
+    if (sessionErrors[scenario]) {
+      send({ id, error: sessionErrors[scenario] });
+      return;
+    }
     result(
       id,
       scenario.startsWith('legacy')
@@ -115,7 +118,7 @@ async function handle(message) {
             modes: {
               currentModeId: 'yolo',
               availableModes:
-                scenario === 'legacy-dangerous-empty'
+                scenario === 'legacy-native-mode-empty'
                   ? []
                   : [
                       { id: 'yolo', name: 'YOLO' },
@@ -128,25 +131,16 @@ async function handle(message) {
     return;
   }
   if (method === 'session/set_config_option') {
+    assert.equal(phase, 'session');
     assert.equal(params.sessionId, sessionId);
-    if (params.configId === 'mode-option') {
-      assert.equal(params.value, 'default');
-      safeMode = true;
-    } else {
-      assert.equal(params.configId, 'model-option');
-      assert.equal(params.value, 'gemini-two');
-      update({ sessionUpdate: 'test-model', value: params.value, method });
-    }
-    result(id, {});
-    return;
-  }
-  if (method === 'session/set_mode') {
-    assert.equal(params.modeId, 'default');
-    safeMode = true;
+    assert.equal(params.configId, 'model-option');
+    assert.equal(params.value, 'gemini-two');
+    update({ sessionUpdate: 'test-model', value: params.value, method });
     result(id, {});
     return;
   }
   if (method === 'session/set_model') {
+    assert.equal(phase, 'session');
     assert.equal(params.modelId, 'gemini-two');
     update({ sessionUpdate: 'test-model', value: params.modelId, method });
     result(id, {});
@@ -169,11 +163,16 @@ async function handle(message) {
     return;
   }
   if (method === 'session/prompt') {
-    assert(safeMode);
+    assert.equal(phase, 'session');
     assert.equal(params.sessionId, sessionId);
     assert.deepEqual(params.prompt, [{ type: 'text', text: 'hello' }]);
     promptId = id;
     turn++;
+    if (scenario === 'prompt-auth-required') {
+      send({ id, error: { code: -32000, message: 'Authentication required fixture-secret' } });
+      promptId = undefined;
+      return;
+    }
     if (scenario === 'exit') {
       process.exit(7);
     }

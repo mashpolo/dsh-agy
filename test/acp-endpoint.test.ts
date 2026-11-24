@@ -10,13 +10,8 @@ test('owner HTTP endpoint carries two turns, explicit approval and cancellation 
       assert.equal(hostId, 'host-session');
       return process.cwd();
     },
-    async (cwd) => ({
-      command: process.execPath,
-      cwd,
-      args: [fixture],
-      env: { GEMINI_API_KEY: 'fixture-key' },
-      cleanup: async () => {},
-    }),
+    process.execPath,
+    [fixture],
   );
   const call = async (body: object) => {
     const response = await api.fetch(

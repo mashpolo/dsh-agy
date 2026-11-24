@@ -12,21 +12,6 @@ function Entry({ entry, state, manager }) {
           <p>{entry.text}</p>
         </div>
       );
-    case 'thought':
-      return (
-        <details className="agy-acp-detail">
-          <summary>思考过程</summary>
-          <p>{entry.text}</p>
-        </details>
-      );
-    case 'tool':
-      return (
-        <div className="agy-acp-tool">
-          <strong>{entry.title || '工具调用'}</strong>
-          {entry.status && <small>{entry.status}</small>}
-          {entry.text && <p>{entry.text}</p>}
-        </div>
-      );
     case 'done':
       return entry.text ? (
         <p className="agy-acp-status" role="status">
@@ -168,10 +153,10 @@ export function AcpPanel({ hostSessionId }) {
         aria-expanded={visible}
         aria-controls={visible ? id : undefined}
         disabled={!state}
-        title="打开 Antigravity CLI 会话"
+        title="打开 Antigravity 会话"
         onClick={open}
       >
-        ACP{state?.running ? (waiting ? ' · 待授权' : ' · 运行中') : ''}
+        Antigravity{state?.running ? (waiting ? ' · 待授权' : ' · 运行中') : ''}
       </button>
       {visible && (
         <dialog
@@ -185,7 +170,7 @@ export function AcpPanel({ hostSessionId }) {
           }}
         >
           <header>
-            <h2 id={id + '-title'}>Antigravity CLI</h2>
+            <h2 id={id + '-title'}>Antigravity</h2>
             <div className="agy-acp-buttons">
               {session && (
                 <button type="button" disabled={pending} onClick={close}>
@@ -197,26 +182,23 @@ export function AcpPanel({ hostSessionId }) {
               </button>
             </div>
           </header>
-          {session && (
+          {models.length > 0 && (
             <div className="agy-acp-context">
-              <span title={session.cwd}>{session.cwd}</span>
-              {models.length > 0 && (
-                <label>
-                  模型{' '}
-                  <select
-                    value={model || session.currentModel || ''}
-                    disabled={pending || state.running}
-                    onChange={(e) => setModel(e.target.value)}
-                  >
-                    {!session.currentModel && <option value="">CLI 默认</option>}
-                    {models.map((item) => (
-                      <option value={item.id} key={item.id}>
-                        {item.name || item.id}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <label>
+                模型{' '}
+                <select
+                  value={model || session.currentModel || ''}
+                  disabled={pending || state.running}
+                  onChange={(e) => setModel(e.target.value)}
+                >
+                  {!session.currentModel && <option value="">CLI 默认</option>}
+                  {models.map((item) => (
+                    <option value={item.id} key={item.id}>
+                      {item.name || item.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
           )}
           <div
@@ -227,7 +209,7 @@ export function AcpPanel({ hostSessionId }) {
               pinned.current = el.scrollHeight - el.clientHeight - el.scrollTop < 80;
             }}
           >
-            {!session && state.pending === 'open' && <p role="status">正在连接 agy…</p>}
+            {!session && state.pending === 'open' && <p role="status">正在连接 Antigravity…</p>}
             {state.entries.map((entry, index) => (
               <Entry key={index} entry={entry} state={state} manager={manager.current} />
             ))}
@@ -257,8 +239,8 @@ export function AcpPanel({ hostSessionId }) {
             <form onSubmit={send}>
               <textarea
                 rows={2}
-                aria-label="发给 Antigravity CLI 的消息"
-                placeholder="发给 Antigravity CLI…"
+                aria-label="发给 Antigravity 的消息"
+                placeholder="发给 Antigravity…"
                 value={draft}
                 disabled={state.pending === 'prompt'}
                 onChange={(e) => setDraft(e.target.value)}

@@ -1,7 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { isRecord } from '../client.js';
-import { AcpProcess } from './process.js';
-import type { PreparedLaunch } from './launch.js';
+import { AcpProcess, record as isRecord } from './process.js';
 
 class InputError extends Error {
   constructor(
@@ -13,7 +11,7 @@ class InputError extends Error {
 }
 
 interface PanelEvent {
-  type: 'text' | 'thought' | 'tool' | 'permission' | 'done' | 'error';
+  type: 'text' | 'permission' | 'done' | 'error';
   title?: string;
   text?: string;
   status?: string;
@@ -38,34 +36,25 @@ class PanelConversation {
   private retainedBytes = 0;
   lastSeen = Date.now();
   closed = false;
-  constructor(launch: PreparedLaunch) {
+  constructor(command: string, args: string[], cwd: string) {
     this.process = new AcpProcess({
-      ...launch,
+      command,
+      args,
+      cwd,
       onUpdate: (update) => {
-        const kind = update.sessionUpdate;
-        if (kind === 'tool_call' || kind === 'tool_call_update') {
-          this.emit({
-            type: 'tool',
-            ...describeTool(update),
-            status: typeof update.status === 'string' ? update.status : undefined,
-          });
-        } else if (
-          (kind === 'agent_message_chunk' || kind === 'agent_thought_chunk') &&
+        if (
+          update.sessionUpdate === 'agent_message_chunk' &&
           isRecord(update.content) &&
           update.content.type === 'text' &&
           typeof update.content.text === 'string'
         ) {
-          this.emit({
-            type: kind === 'agent_message_chunk' ? 'text' : 'thought',
-            text: update.content.text,
-          });
+          this.emit({ type: 'text', text: update.content.text });
         }
       },
       onPermission: (request) => this.ask(request),
       onExit: () => {
         this.closed = true;
         this.clearPermissions();
-        void launch.cleanup().catch(() => {});
       },
     });
   }
@@ -186,7 +175,8 @@ export class AcpEndpoint {
 
   constructor(
     private readonly workspace: (id: string, signal: AbortSignal) => Promise<string>,
-    private readonly launch: (cwd: string) => Promise<PreparedLaunch>,
+    private readonly command: string,
+    private readonly args: string[] = ['acp', '--sandbox'],
   ) {}
   dispose() {
     this.disposed = true;
@@ -202,8 +192,7 @@ export class AcpEndpoint {
     this.opening++;
     try {
       const cwd = await this.workspace(hostId, signal);
-      const launch = await this.launch(cwd);
-      const session = new PanelConversation(launch),
+      const session = new PanelConversation(this.command, this.args, cwd),
         id = randomUUID();
       const abort = () => session.close();
       signal.addEventListener('abort', abort, { once: true });

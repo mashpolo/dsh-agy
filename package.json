@@ -1,7 +1,7 @@
 {
   "name": "dsh-antigravity",
-  "version": "0.2.0-beta.2",
-  "description": "Antigravity models and tools for DeepSeek Harness",
+  "version": "0.2.0-beta.3",
+  "description": "DeepSeek Harness frontend for local Antigravity CLI sessions",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -12,19 +12,13 @@
     "./package.json": "./package.json",
     "./client": "./dist/client.js"
   },
-  "bin": {
-    "dsh-antigravity-login": "./dist/login.js"
-  },
   "files": [
     "dist/index.js",
-    "dist/login.js",
     "dist/client.js",
     "cordis.patch.yml",
     "README.md",
     "LICENSE",
-    "THIRD_PARTY_NOTICES.md",
-    "CHANGELOG.md",
-    "docs/images/quota-panel.png"
+    "CHANGELOG.md"
   ],
   "dsh": {
     "bundle": {
@@ -40,7 +34,6 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "login": "node dist/login.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test test/*.test.ts && node --test test/*.test.mjs",
     "check": "npm run typecheck && npm run build && npm test",
@@ -49,32 +42,19 @@
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.1.0",
     "@deepseek-ai/dsh-agent": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-attachment": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-authorization": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-commands": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
     "@deepseek-ai/dsh-fs": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
     "@deepseek-ai/dsh-session": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-tools": "0.2.2-rc.5",
     "@deepseek-ai/dsh-working-directory": "0.2.2-rc.5"
   },
   "dependencies": {
-    "@deepseek-ai/dsh-credentials-local": "0.2.2-rc.5",
-    "@deepseek-ai/schemastery": "~3.19.0",
-    "turndown": "7.2.5",
-    "turndown-plugin-gfm": "1.0.2"
+    "@deepseek-ai/schemastery": "~3.19.0"
   },
   "devDependencies": {
-    "@deepseek-ai/dsh-attachment": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-authorization": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-fs": "0.2.2-rc.5",
     "@types/node": "^24.10.0",
-    "@types/turndown": "^5.0.6",
     "esbuild": "^0.27.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "@deepseek-ai/dsh-credentials-local": "0.2.2-rc.5"
   }
 }

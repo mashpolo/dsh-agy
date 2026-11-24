@@ -19,7 +19,7 @@ function setup(
     command: globalThis.process.execPath,
     args: [fixture, scenario],
     cwd: globalThis.process.cwd(),
-    env: { GEMINI_API_KEY: 'fixture-key' },
+    env: {},
     onUpdate: (update) => {
       updates.push(update);
       onUpdate(update);
@@ -33,7 +33,7 @@ function setup(
   return { process, updates, exit, exits: () => exits };
 }
 
-test('initializes, selects explicit API-key authentication and safe mode, then streams one scoped turn', async () => {
+test('initializes a CLI-owned session without authentication or mode changes, then streams one scoped turn', async () => {
   const f = setup();
   try {
     assert.deepEqual(await f.process.start(), {
@@ -95,11 +95,12 @@ test('selecting the current model does not send a redundant model-switch request
   }
 });
 
-test('refuses an explicitly dangerous current mode with no safe selectable alternative', async () => {
-  for (const scenario of ['dangerous-empty', 'legacy-dangerous-empty']) {
+test('preserves native CLI modes even when no alternative is offered', async () => {
+  for (const scenario of ['native-mode-empty', 'legacy-native-mode-empty']) {
     const f = setup(scenario);
     try {
-      await assert.rejects(f.process.start(), /approval|mode/i);
+      await f.process.start();
+      assert.equal(await f.process.prompt('hello'), 'end_turn');
     } finally {
       f.process.close();
       await f.exit;
@@ -107,7 +108,7 @@ test('refuses an explicitly dangerous current mode with no safe selectable alter
   }
 });
 
-test('preserves the CLI approval-required default when it reports no mode configuration', async () => {
+test('forwards native permission requests when the CLI reports no mode configuration', async () => {
   let permissions = 0;
   const f = setup('unreported-mode', async () => {
     permissions++;
@@ -160,7 +161,7 @@ test(
   },
 );
 
-test('uses legacy availableModels and set_model without switching to an unsafe mode', async () => {
+test('uses legacy availableModels and set_model without changing the CLI mode', async () => {
   const f = setup('legacy');
   try {
     await f.process.start();
@@ -246,16 +247,54 @@ test('process exit and malformed NDJSON reject pending calls with safe errors an
   }
 });
 
-test('authentication failure never falls back to personal subscription or leaks server diagnostics', async () => {
-  const f = setup('auth-error');
+test('session/new auth-required errors ask for local CLI login without selecting a method', async () => {
+  const f = setup('auth-required');
   await assert.rejects(f.process.start(), (error) => {
     assert(error instanceof Error);
-    assert(!error.message.includes('fixture-key'));
+    assert.match(error.message, /本机 CLI/);
+    assert.match(error.message, /当前登录方式/);
+    assert.match(error.message, /重新打开会话/);
+    assert.doesNotMatch(error.message, /fixture-secret|api.?key|oauth|methodId/i);
     return true;
   });
   f.process.close();
   await f.exit;
   assert.equal(f.exits(), 1);
+});
+
+test('other session errors do not become missing-login errors or expose CLI diagnostics', async () => {
+  for (const [scenario, code] of [
+    ['forbidden', 403],
+    ['auth-denied', -32001],
+    ['internal-auth-text', -32603],
+  ] as const) {
+    const f = setup(scenario);
+    await assert.rejects(f.process.start(), (error) => {
+      assert(error instanceof Error);
+      assert.match(error.message, new RegExp(String(code)));
+      assert.doesNotMatch(error.message, /fixture-secret|登录|login|api.?key|oauth/i);
+      return true;
+    });
+    f.process.close();
+    await f.exit;
+    assert.equal(f.exits(), 1);
+  }
+});
+
+test('auth-required codes outside session creation retain their request error', async () => {
+  const f = setup('prompt-auth-required');
+  try {
+    await f.process.start();
+    await assert.rejects(f.process.prompt('hello'), (error) => {
+      assert(error instanceof Error);
+      assert.match(error.message, /-32000/);
+      assert.doesNotMatch(error.message, /fixture-secret|登录|login/i);
+      return true;
+    });
+  } finally {
+    f.process.close();
+    await f.exit;
+  }
 });
 
 test('close rejects initialization and is idempotent', async () => {
@@ -268,16 +307,28 @@ test('close rejects initialization and is idempotent', async () => {
   assert.equal(f.exits(), 1);
 });
 
-test('missing API key is rejected before any authentication or model call', async () => {
+test('omitting env preserves native child-process environment inheritance', async () => {
+  const previous = process.env.ACP_PROCESS_TEST_INHERITED;
+  process.env.ACP_PROCESS_TEST_INHERITED = 'fixture inherited environment';
+  let exited!: () => void;
+  const exit = new Promise<void>((resolve) => {
+    exited = resolve;
+  });
   const agent = new AcpProcess({
     command: process.execPath,
-    args: [fixture],
+    args: [fixture, 'inherited-env'],
     cwd: process.cwd(),
-    env: {},
     onUpdate() {},
     onPermission: async () => null,
-    onExit() {},
+    onExit: exited,
   });
-  await assert.rejects(agent.start(), /GEMINI_API_KEY/);
-  agent.close();
+  try {
+    await agent.start();
+    assert.equal(await agent.prompt('hello'), 'end_turn');
+  } finally {
+    agent.close();
+    await exit;
+    if (previous === undefined) delete process.env.ACP_PROCESS_TEST_INHERITED;
+    else process.env.ACP_PROCESS_TEST_INHERITED = previous;
+  }
 });
