@@ -16,19 +16,18 @@ import {
   type ToolDefinition,
   type ToolRunContext,
 } from '@deepseek-ai/dsh-tools';
-import { executeAntigravitySearch } from 'pi-antigravity/src/search/search.js';
+import {
+  executeAntigravitySearch,
+  generateAntigravityImageContent,
+  IMAGE_ASPECT_RATIOS,
+  type GeneratedImage,
+} from './tool-api.js';
 import {
   executeAntigravityWebFetch,
   formatWebFetchHeader,
   formatWebFetchResult,
   validateFetchTarget,
-} from 'pi-antigravity/src/web-fetch/web-fetch.js';
-import {
-  generateAntigravityImageContent,
-  IMAGE_ASPECT_RATIOS,
-  type GeneratedImage,
-} from 'pi-antigravity/src/image/image.js';
-import { redactSecrets } from 'pi-antigravity/src/utils/security.js';
+} from './web-page.js';
 
 export interface ToolsConfig {
   maxPageChars?: number;
@@ -37,7 +36,7 @@ export interface ToolAuth {
   getApiKey(): Promise<string>;
 }
 
-/** The host owns filesystem access and durable images; upstream only makes API calls. */
+/** The host owns filesystem access and durable images. */
 export interface ToolHost {
   workingDirectory(exec: ToolRunContext): Promise<string>;
   resolvePath(path: string, cwd: string, signal: AbortSignal): Promise<string>;
@@ -97,7 +96,15 @@ async function run<T>(signal: AbortSignal, action: () => Promise<T>): Promise<T>
     return result;
   } catch (error) {
     signal.throwIfAborted();
-    throw new Error(redactSecrets(error instanceof Error ? error.message : String(error)));
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      message
+        .replace(/Bearer\s+[^\s,;]+/gi, 'Bearer [redacted]')
+        .replace(
+          /(access_token|refresh_token|client_secret|api_key)(["'\s:=]+)[^&"'\s,}]+/gi,
+          '$1$2[redacted]',
+        ),
+    );
   }
 }
 

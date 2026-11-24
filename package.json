@@ -1,6 +1,6 @@
 {
   "name": "dsh-antigravity",
-  "version": "0.1.0",
+  "version": "0.2.0-beta.1",
   "description": "Antigravity models and tools for DeepSeek Harness",
   "type": "module",
   "license": "MIT",
@@ -16,7 +16,9 @@
     "dsh-antigravity-login": "./dist/login.js"
   },
   "files": [
-    "dist",
+    "dist/index.js",
+    "dist/login.js",
+    "dist/client.js",
     "cordis.patch.yml",
     "README.md",
     "LICENSE",
@@ -58,11 +60,8 @@
   "dependencies": {
     "@deepseek-ai/dsh-credentials-local": "0.2.2-rc.5",
     "@deepseek-ai/schemastery": "~3.19.0",
-    "@earendil-works/pi-ai": "1.5.0",
-    "@mixmark-io/domino": "2.2.0",
     "turndown": "7.2.5",
-    "turndown-plugin-gfm": "1.0.2",
-    "undici": "8.12.4"
+    "turndown-plugin-gfm": "1.0.2"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-attachment": "0.2.2-rc.5",
@@ -70,14 +69,10 @@
     "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
     "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
     "@deepseek-ai/dsh-fs": "0.2.2-rc.5",
-    "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-rc.5",
-    "@earendil-works/pi-coding-agent": "1.5.0",
     "@types/node": "^24.10.0",
     "@types/turndown": "^5.0.6",
     "esbuild": "^0.27.0",
-    "pi-antigravity": "0.15.0",
     "tsx": "^4.21.0",
-    "typebox": "^1.4.6",
     "typescript": "^6.0.3"
   }
 }

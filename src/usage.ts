@@ -1,13 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis';
 import type {} from '@deepseek-ai/dsh-commands';
-import {
-  antigravityHeaders,
-  endpointCandidates,
-  fetchAvailableModelsCatalog,
-  parseApiKey,
-} from 'pi-antigravity/src/client/client.js';
-import { antigravityFetch } from 'pi-antigravity/src/utils/http.js';
-import { isRecord } from 'pi-antigravity/src/utils/util.js';
+import { fetchAvailableModelsCatalog, isRecord, parseApiKey, postRpc } from './client.js';
 import type { Auth } from './auth.js';
 
 export interface UsageRow {
@@ -44,30 +37,10 @@ const resetClock = new Intl.DateTimeFormat('zh-CN', {
 });
 
 async function readAccountRpc(method: string, body: object, token: string, signal: AbortSignal) {
-  let problem = '网络请求失败';
-  for (const endpoint of endpointCandidates()) {
-    signal.throwIfAborted();
-    try {
-      const res = await antigravityFetch(endpoint + '/v1internal:' + method, {
-        method: 'POST',
-        headers: antigravityHeaders(token),
-        body: JSON.stringify(body),
-        signal: AbortSignal.any([signal, AbortSignal.timeout(8000)]),
-      });
-      if (res.ok) {
-        const data: unknown = await res.json();
-        if (isRecord(data)) return data;
-        problem = '响应格式异常';
-      } else {
-        problem = 'HTTP ' + res.status;
-        await res.body?.cancel();
-        if (res.status === 401) break;
-      }
-    } catch {
-      signal.throwIfAborted();
-    }
-  }
-  throw new Error(problem);
+  const response = await postRpc(method, body, token, signal);
+  const data: unknown = await response.json().catch(() => null);
+  if (!isRecord(data)) throw new Error('响应格式异常');
+  return data;
 }
 
 function quotaLine({ label, fraction, resetAt }: UsageRow) {

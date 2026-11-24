@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src", "test", "node_modules/pi-antigravity/src/web-fetch/vendor.d.ts"]
+  "include": ["src", "test"]
 }

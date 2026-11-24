@@ -7,11 +7,7 @@ import {
   type CredentialRecord,
 } from '@deepseek-ai/dsh-credentials';
 import { LlmError } from '@deepseek-ai/dsh-llm';
-import {
-  getApiKey,
-  loginAntigravity,
-  refreshAntigravityToken,
-} from 'pi-antigravity/src/auth/oauth.js';
+import { getApiKey, loginAntigravity, OAuthError, refreshAntigravityToken } from './oauth.js';
 
 export const CREDENTIAL_KEY = credentialKey('dsh-antigravity', 'antigravity');
 
@@ -21,12 +17,6 @@ type CredentialStore = Pick<CredentialProvider, 'readRecord' | 'modifyRecord'>;
 export interface Auth {
   getSession(): Promise<{ apiKey: string; accountId: string; email?: string | null }>;
   getApiKey(): Promise<string>;
-}
-
-function hostMessage(message: string): string {
-  return message
-    .replaceAll('/login antigravity', 'dsh-antigravity-login')
-    .replace(/\bPi\b/g, 'DeepSeek Harness');
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -48,7 +38,8 @@ function readCredentials(record: CredentialRecord | undefined): Credentials {
     !Number.isFinite(value.expires) ||
     value.expires < 0 ||
     (value.projectId !== undefined && !isToken(value.projectId)) ||
-    (value.email !== undefined && typeof value.email !== 'string')
+    (value.email !== undefined && typeof value.email !== 'string') ||
+    (value.oauthClientId !== undefined && !isToken(value.oauthClientId))
   ) {
     throw new LlmError(
       'Sign in to Antigravity by running dsh-antigravity-login with the same DSH_HOME as DeepSeek Harness.',
@@ -61,6 +52,7 @@ function readCredentials(record: CredentialRecord | undefined): Credentials {
     expires: value.expires,
     ...(value.projectId === undefined ? {} : { projectId: value.projectId }),
     ...(value.email === undefined ? {} : { email: value.email }),
+    ...(value.oauthClientId === undefined ? {} : { oauthClientId: value.oauthClientId }),
   };
 }
 
@@ -82,9 +74,11 @@ export function createAuth(
         if (current.expires > Date.now()) return undefined;
         try {
           return grant(await refresh(current));
-        } catch {
+        } catch (error) {
           throw new LlmError(
-            'Antigravity token refresh failed. Check your connection or sign in again with dsh-antigravity-login.',
+            error instanceof OAuthError
+              ? error.message
+              : 'Antigravity token refresh failed. Check your connection or sign in again with dsh-antigravity-login.',
             'AUTH',
           );
         }
@@ -103,7 +97,7 @@ export function createAuth(
   };
 }
 
-/** Native Harness authorization; no Pi auth files or second credential writer. */
+/** Native Harness authorization uses the host credential store. */
 export function createLoginFlow(
   login: typeof loginAntigravity = loginAntigravity,
 ): AuthorizationFlow {
@@ -121,24 +115,16 @@ export function createLoginFlow(
           onAuth: ({ url, instructions }) =>
             session.notify({
               url,
-              message: hostMessage(instructions ?? 'Open Google to sign in to Antigravity.'),
+              message: instructions ?? 'Open Google to sign in to Antigravity.',
             }),
-          onDeviceCode: ({ verificationUri, userCode }) =>
-            session.notify({
-              message: 'Enter this code to finish signing in.',
-              url: verificationUri,
-              code: userCode,
-            }),
-          onPrompt: ({ message, placeholder }) =>
+          onPrompt: ({ message, placeholder, signal: promptSignal }) =>
             session.prompt({
               kind: 'secret',
-              message: hostMessage(message),
-              signal,
+              message,
+              signal: promptSignal ? AbortSignal.any([signal, promptSignal]) : signal,
               ...(placeholder === undefined ? {} : { placeholder }),
             }),
-          onSelect: ({ message, options }) =>
-            session.prompt({ kind: 'select', message: hostMessage(message), options, signal }),
-          onProgress: (message) => session.notify({ message: hostMessage(message) }),
+          onProgress: (message) => session.notify({ message }),
         });
       } finally {
         // A browser callback can win while the manual-paste prompt is still open.
@@ -151,7 +137,7 @@ export function createLoginFlow(
 
 /**
  * Standalone login shares the official DSH store. Launch it with the same
- * DSH_HOME and user account as Harness; no Pi credential files are involved.
+ * DSH_HOME and user account as Harness.
  */
 export async function runLogin(
   args = process.argv.slice(2),
@@ -159,7 +145,7 @@ export async function runLogin(
 ): Promise<void> {
   if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
     console.log(
-      'Usage: dsh-antigravity-login\n\nSign in to Antigravity with Google.\nRun with the same DSH_HOME as DeepSeek Harness. Credentials are saved through its official credential store.',
+      'Usage: dsh-antigravity-login\n\nSign in to Antigravity with Google.\nSet ANTIGRAVITY_CLIENT_ID to your registered Google Desktop OAuth client; set ANTIGRAVITY_CLIENT_SECRET only if that client requires it.\nExisting grants must be refreshed with the same OAuth client that authorized them.\nANTIGRAVITY_PROJECT_ID can select an existing project when discovery is unavailable.\nRun with the same DSH_HOME as DeepSeek Harness. Credentials are saved through its official credential store.',
     );
     return;
   }
@@ -228,12 +214,14 @@ export async function runLogin(
       console.error('Antigravity sign-in cancelled.');
       process.exitCode = 130;
     }
-  } catch {
+  } catch (error) {
     // OAuth callbacks and token responses must never enter terminal diagnostics.
     console.error(
       controller.signal.aborted
         ? 'Antigravity sign-in cancelled.'
-        : 'Antigravity sign-in failed. Check your connection and run dsh-antigravity-login again.',
+        : error instanceof OAuthError
+          ? error.message
+          : 'Antigravity sign-in failed. Check your connection and run dsh-antigravity-login again.',
     );
     process.exitCode = controller.signal.aborted ? 130 : 1;
   } finally {

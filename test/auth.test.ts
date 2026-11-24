@@ -9,6 +9,7 @@ import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local';
 import type { AuthorizationSession } from '@deepseek-ai/dsh-authorization';
 import type { CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials';
 import { CREDENTIAL_KEY, createAuth, createLoginFlow } from '../src/auth.js';
+import { OAuthError } from '../src/oauth.js';
 
 const credentials = () => ({
   access: 'access-token',
@@ -154,6 +155,74 @@ test('a failed refresh leaves the previous grant intact and does not disclose it
   assert.equal(memory.writes(), 0);
 });
 
+test('stored OAuth client identity is preserved and safe configuration errors remain actionable', async () => {
+  const memory = memoryStore({
+    kind: 'grant',
+    payload: {
+      ...credentials(),
+      expires: 0,
+      oauthClientId: 'owned-client',
+    },
+  });
+  const auth = createAuth(memory.store, async (current) => {
+    assert.equal(current.oauthClientId, 'owned-client');
+    throw new OAuthError(
+      'Set ANTIGRAVITY_CLIENT_ID to the same OAuth client that authorized this grant.',
+      'OAUTH_CONFIG',
+    );
+  });
+  await assert.rejects(auth.getSession(), /ANTIGRAVITY_CLIENT_ID.*same OAuth client/);
+  assert.equal(memory.writes(), 0);
+});
+
+test(
+  'CLI displays safe OAuth configuration guidance without exposing credentials',
+  { timeout: 15_000 },
+  async () => {
+    const home = await mkdtemp(join(tmpdir(), 'dsh-oauth-config-'));
+    const authEntry = new URL('../src/auth.ts', import.meta.url).href;
+    const child = spawn(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        '--input-type=module',
+        '-e',
+        `const {runLogin}=await import(${JSON.stringify(authEntry)}); await runLogin([]);`,
+      ],
+      {
+        env: {
+          ...process.env,
+          DSH_HOME: home,
+          ANTIGRAVITY_CLIENT_ID: '',
+          ANTIGRAVITY_CLIENT_SECRET: 'private-config-secret',
+        },
+        stdio: 'pipe',
+      },
+    );
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    try {
+      const code = await new Promise<number | null>((resolve, reject) => {
+        child.once('error', reject);
+        child.once('close', resolve);
+      });
+      assert.equal(code, 1);
+      assert.match(stderr, /ANTIGRAVITY_CLIENT_ID/);
+      assert.doesNotMatch(stdout + stderr, /access-token|refresh-token|private-config-secret/);
+    } finally {
+      child.kill();
+      await rm(home, { recursive: true, force: true });
+    }
+  },
+);
+
 test('login forwards notices, commits a JSON grant, and withdraws the losing paste prompt', async () => {
   const notices: unknown[] = [];
   let committed: CredentialRecord | undefined;
@@ -183,7 +252,7 @@ test('login forwards notices, commits a JSON grant, and withdraws the losing pas
     assert.equal(callbacks.signal, controller.signal);
     callbacks.onAuth({
       url: 'https://accounts.google.com/example',
-      instructions: 'Return to Pi; re-run /login antigravity if needed.',
+      instructions: 'Return to DeepSeek Harness; re-run dsh-antigravity-login if needed.',
     });
     void callbacks
       .onPrompt({ message: 'Paste callback', placeholder: 'http://localhost/callback' })

@@ -46,7 +46,8 @@ test('built plugin makes native streaming requests with DSH attribution and no c
     assert.equal(headers.get('authorization'), 'Bearer test-access');
     for (const [name, value] of Object.entries(attributionHeaders()))
       assert(headers.get(name)?.includes(value));
-    assert(headers.get('user-agent').startsWith('antigravity/cli/'));
+    assert.equal(headers.get('user-agent'), new Headers(attributionHeaders()).get('user-agent'));
+    assert(!headers.get('user-agent').includes('antigravity/cli/'));
     if (url.includes('fetchAvailableModels'))
       return Response.json({
         models: {
@@ -98,6 +99,7 @@ test('built plugin makes native streaming requests with DSH attribution and no c
     assert.equal(wire.project, 'test-project');
     assert.equal(wire.model, 'gemini-3.8-flash-low');
     assert.equal(wire.enabledCreditTypes, undefined);
+    assert.equal(wire.userAgent, 'dsh-antigravity');
     assert(
       wire.request.contents.some((message) =>
         message.parts.some((part) => part.text?.includes('Say hello.')),
