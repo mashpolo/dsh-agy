@@ -1,5 +1,5 @@
 import { build } from 'esbuild';
-import { readFile, mkdir, writeFile, chmod } from 'node:fs/promises';
+import { readFile, mkdir, writeFile, chmod, copyFile } from 'node:fs/promises';
 
 const pkg = JSON.parse(await readFile(new URL('./package.json', import.meta.url), 'utf8'));
 
@@ -70,7 +70,12 @@ const hostIsolation = {
   },
 };
 
-await mkdir('dist', { recursive: true });
+for (const name of ['pi-antigravity', '@deepseek-ai/dsh-llm-pi-ai']) {
+  const directory = `dist/licenses/${name}`;
+  await mkdir(directory, { recursive: true });
+  await copyFile(`node_modules/${name}/LICENSE`, `${directory}/LICENSE`);
+}
+
 const options = {
   bundle: true,
   platform: 'node',

@@ -61,4 +61,4 @@ npm run login
 
 安装依赖后运行 `npm run check`，可完成 TypeScript 检查、构建和测试。插件代码位于 `src/`，测试位于 `test/`。
 
-本项目使用 MIT 许可。随包分发的第三方代码及版权声明见 [第三方许可](THIRD_PARTY_NOTICES.md)。[项目许可](LICENSE) · [版本记录](CHANGELOG.md)
+本项目使用 MIT 许可。随包分发的依赖及其许可见 [第三方许可清单](THIRD_PARTY_NOTICES.md)。[项目许可](LICENSE) · [版本记录](CHANGELOG.md)
