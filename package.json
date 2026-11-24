@@ -21,7 +21,8 @@
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md",
-    "WORK_LOG.md"
+    "CHANGELOG.md",
+    "docs/images/quota-panel.png"
   ],
   "dsh": {
     "bundle": {
