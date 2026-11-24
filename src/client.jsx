@@ -1,3 +1,4 @@
+import { AcpPanel } from './AcpPanel.jsx';
 import { QuotaPopover } from './QuotaPopover.jsx';
 import { usagePath } from './usage-route.ts';
 
@@ -23,6 +24,17 @@ export function apply(ctx) {
         inject: () => ({ loadUsage }),
       },
       QuotaPopover,
+    ),
+  );
+  ctx.slots.inject(slot, () =>
+    ctx.slots.register(
+      {
+        name: slot,
+        id: 'antigravity-acp',
+        order: 26,
+        inject: (hostSessionId) => ({ hostSessionId }),
+      },
+      AcpPanel,
     ),
   );
 }

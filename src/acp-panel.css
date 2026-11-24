@@ -1,0 +1,195 @@
+.agy-acp-trigger {
+  padding: 4px 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.agy-acp-trigger:hover {
+  background: color-mix(in srgb, currentColor 9%, transparent);
+}
+.agy-acp {
+  color-scheme: light dark;
+  --acp-fg: light-dark(#252930, #e7eaf0);
+  --acp-muted: light-dark(#5c6471, #b0b8c6);
+  --acp-bg: light-dark(#fff, #202328);
+  --acp-soft: light-dark(#f5f6f8, #292d35);
+  --acp-border: light-dark(#d9dfe5, #404650);
+  --acp-blue: light-dark(#165aba, #8ebcff);
+  box-sizing: border-box;
+  padding: 0;
+  color: var(--acp-fg);
+  background: var(--acp-bg);
+  border: 1px solid var(--acp-border);
+  border-radius: 14px;
+  box-shadow: 0 18px 80px #0004;
+  width: min(640px, calc(100vw - 32px));
+  height: min(700px, calc(100dvh - 40px));
+  max-width: none;
+  max-height: none;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: auto;
+}
+.agy-acp[open] {
+  display: flex;
+  flex-direction: column;
+}
+.agy-acp::backdrop {
+  background: #11182744;
+}
+.agy-acp header,
+.agy-acp-context,
+.agy-acp-send,
+.agy-acp-feedback,
+.agy-acp-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.agy-acp header {
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+}
+.agy-acp h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  color: inherit;
+}
+.agy-acp .agy-acp-context {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--acp-border);
+  padding: 0 18px 10px;
+  color: var(--acp-muted);
+  font-size: 12px;
+}
+.agy-acp-context span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.agy-acp-context select {
+  max-width: clamp(120px, 58vw, 280px);
+}
+.agy-acp button,
+.agy-acp select {
+  font: inherit;
+  padding: 4px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--acp-border);
+  background: var(--acp-soft);
+  color: var(--acp-fg);
+}
+.agy-acp button {
+  cursor: pointer;
+}
+.agy-acp button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.agy-acp :is(button, select, textarea):focus-visible,
+.agy-acp-trigger:focus-visible {
+  outline: 2px solid var(--acp-blue, #387bd7);
+  outline-offset: 2px;
+}
+.agy-acp-history {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 18px;
+  overscroll-behavior: contain;
+}
+.agy-acp p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agy-acp-empty,
+.agy-acp-detail,
+.agy-acp-tool,
+.agy-acp-status {
+  color: var(--acp-muted);
+}
+.agy-acp-message,
+.agy-acp-detail,
+.agy-acp-tool,
+.agy-acp-permission {
+  margin: 0 0 14px;
+}
+.agy-acp-user {
+  background: var(--acp-soft);
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.agy-acp-message strong,
+.agy-acp-tool strong {
+  font-size: 12px;
+  color: var(--acp-muted);
+}
+.agy-acp-detail {
+  font-size: 13px;
+}
+.agy-acp-detail summary {
+  cursor: pointer;
+}
+.agy-acp-tool small,
+.agy-acp-permission small {
+  margin-left: 8px;
+  color: var(--acp-muted);
+}
+.agy-acp-permission {
+  padding: 10px 12px;
+  border: 1px solid var(--acp-border);
+  border-left: 3px solid var(--acp-blue);
+  border-radius: 6px;
+}
+.agy-acp-permission .agy-acp-buttons {
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.agy-acp-feedback,
+.agy-acp-error {
+  color: light-dark(#9d2c25, #ffa69e);
+  overflow-wrap: anywhere;
+}
+.agy-acp-feedback {
+  justify-content: space-between;
+  padding: 8px 18px;
+}
+.agy-acp form {
+  border-top: 1px solid var(--acp-border);
+  padding: 12px 18px;
+}
+.agy-acp textarea {
+  box-sizing: border-box;
+  width: 100%;
+  resize: vertical;
+  min-height: 50px;
+  max-height: 25dvh;
+  font: inherit;
+  color: inherit;
+  background: var(--acp-bg);
+  border: 1px solid var(--acp-border);
+  border-radius: 7px;
+  padding: 7px 9px;
+}
+.agy-acp-send {
+  justify-content: space-between;
+  margin-top: 6px;
+}
+.agy-acp-send span {
+  color: var(--acp-muted);
+  font-size: 12px;
+}
+.agy-acp button.agy-acp-primary {
+  background: #235fba;
+  border-color: #235fba;
+  color: #fff;
+}

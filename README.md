@@ -1,8 +1,14 @@
 # dsh-agy
 
-dsh-agy 是 DeepSeek Harness 的 Antigravity 协议适配器。服务端授予模型权限后，可以在 Harness 中选择模型、接收流式回复和思考内容，并调用搜索、网页读取或图片生成工具。
+dsh-agy 在 DeepSeek Harness 的会话标题栏提供独立的 Antigravity CLI 会话和订阅额度面板。本版本同时保留原模型适配器。
 
-这个测试版直接在 Harness 内转换消息、解析流式响应并调用 Google 服务。工具由 Harness 调度。Google OAuth 登录和模型服务分别检查权限，登录成功后仍可能收到模型目录或订阅额度接口的 403。Google 说明第三方编码工具不支持使用 Antigravity 登录。自行注册 OAuth 客户端也不会授予订阅接口访问权。详见 [Antigravity FAQ](https://antigravity.google/docs/faq)。
+## 使用独立 ACP 会话
+
+进入本机项目会话，点击标题栏的 **ACP**。面板显示当前工作目录及 CLI 提供的模型。发送第一条消息后，可以持续在同一面板追问、查看流式回复和思考内容。遇到工具审批时，核对操作内容并选择允许或拒绝；**停止**中止当前回合。**隐藏**保留会话，**结束会话**关闭子进程。切换宿主会话或刷新页面也会关闭该面板的会话。长时间无客户端请求的子进程会在约 30 分钟后回收。面板的聊天记录保存在页面内存中。
+
+此入口使用本机 `agy acp` 和 Google AI Studio 的 Gemini API key。将 `GEMINI_API_KEY` 设置在**启动 Harness 服务的进程环境**中，然后启动 Harness。在已打开的桌面应用之外另开终端设置变量，只会影响那个终端及其子进程。可用 `command -v agy` 查到 CLI 位置。若桌面服务的 PATH 找不到它，在插件配置项 `acpBinaryPath` 填入可执行文件的绝对路径。
+
+每个面板使用独立的临时 CLI 配置，关闭后回收。模型、工具及用量按该 API key 和 CLI 实际提供的能力为准。搜索、读网页和生成图片这三个原 Harness 工具属于下面的模型适配器；首版 ACP 面板尚未将它们通过 MCP 提供给 CLI。订阅额度按钮与 API key 的用量分别来自不同账户配置。Google 对第三方编码工具的账号接入说明见 [Antigravity FAQ](https://antigravity.google/docs/faq)。
 
 ## 查看剩余额度
 
@@ -14,9 +20,9 @@ dsh-agy 是 DeepSeek Harness 的 Antigravity 协议适配器。服务端授予�
 
 在会话中输入 `/antigravity-usage` 可以查看同一份数据的文字版。部分账号只能取得各模型的额度，插件会在共享额度不可用时尝试按模型显示。多个模型可能共用一个额度池。
 
-## 安装 0.2.0-beta.1
+## 安装 0.2.0-beta.2
 
-需要 Node.js 24.9.0 或更高版本、DeepSeek Harness 0.2.2-rc.5，以及可以使用 Antigravity 的 Google 账号。以下命令均在本仓库根目录运行。仓库名是 `dsh-agy`，Harness 使用的插件包名是 `dsh-antigravity`。
+需要 Node.js 24.9.0 或更高版本、DeepSeek Harness 0.2.2-rc.5。ACP 面板还需要支持 ACP 的本机 Antigravity CLI 和 Gemini API key。以下命令均在本仓库根目录运行。仓库名是 `dsh-agy`，Harness 使用的插件包名是 `dsh-antigravity`。
 
 先安装依赖并生成安装包。`npm pack` 会自动构建插件。
 
@@ -28,16 +34,16 @@ npm pack
 **桌面版**使用应用附带的 `dsh` 命令。正常退出 Harness 后，执行下面的命令安装插件。
 
 ```sh
-dsh plugin --profile desktop add --config.strict-dep-builds=false "$PWD/dsh-antigravity-0.2.0-beta.1.tgz"
+dsh plugin --profile desktop add --config.strict-dep-builds=false "$PWD/dsh-antigravity-0.2.0-beta.2.tgz"
 ```
 
 **Web 版**使用 `web` 配置安装。
 
 ```sh
-npx --yes @deepseek-ai/dsh@0.2.2-rc.5 plugin --profile web add "$PWD/dsh-antigravity-0.2.0-beta.1.tgz"
+npx --yes @deepseek-ai/dsh@0.2.2-rc.5 plugin --profile web add "$PWD/dsh-antigravity-0.2.0-beta.2.tgz"
 ```
 
-### 登录与选择模型
+### 原模型适配器的 OAuth 登录与模型选择
 
 配置你有权使用的 Google 桌面应用 OAuth 客户端，再在源码目录运行登录命令。登录程序会给出 Google 授权网址。登录程序和启动 Harness 的进程都需要能读取同一份 OAuth 配置。
 
@@ -49,7 +55,7 @@ npm run login
 
 如果 Google 没有自动返回项目，请将环境变量 `ANTIGRAVITY_PROJECT_ID` 设为账号有权访问的实际项目。旧版登录凭据只能用原 OAuth 客户端刷新，换用自己的客户端时需要重新登录。
 
-登录命令与 Harness 需要使用相同的 `DSH_HOME`，默认目录为 `~/.dsh`。如果只有安装包，可以在安装包所在目录运行 `npm exec --yes --package=./dsh-antigravity-0.2.0-beta.1.tgz -- dsh-antigravity-login`。
+登录命令与 Harness 需要使用相同的 `DSH_HOME`，默认目录为 `~/.dsh`。如果只有安装包，可以在安装包所在目录运行 `npm exec --yes --package=./dsh-antigravity-0.2.0-beta.2.tgz -- dsh-antigravity-login`。
 
 重新打开桌面应用，或用 `npx --yes @deepseek-ai/dsh@0.2.2-rc.5 web` 启动 Web 版。在会话的模型选择器中打开 **Antigravity**，选择当前账号可用的模型。
 
