@@ -1,0 +1,5 @@
+- insert:
+    - id: dsh-antigravity
+      name: dsh-antigravity
+      config:
+        maxPageChars: 60000

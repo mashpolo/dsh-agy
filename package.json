@@ -1,0 +1,82 @@
+{
+  "name": "dsh-antigravity",
+  "version": "0.1.0",
+  "description": "Antigravity models and tools for DeepSeek Harness",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json",
+    "./client": "./dist/client.js"
+  },
+  "bin": {
+    "dsh-antigravity-login": "./dist/login.js"
+  },
+  "files": [
+    "dist",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "WORK_LOG.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "login": "node dist/login.js",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts && node --test test/*.test.mjs",
+    "check": "npm run typecheck && npm run build && npm test",
+    "prepack": "npm run build"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0",
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-authorization": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-commands": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-fs": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-tools": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-working-directory": "0.2.2-rc.5"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-credentials-local": "0.2.2-rc.5",
+    "@deepseek-ai/schemastery": "~3.19.0",
+    "@earendil-works/pi-ai": "1.5.0",
+    "@mixmark-io/domino": "2.2.0",
+    "turndown": "7.2.5",
+    "turndown-plugin-gfm": "1.0.2",
+    "undici": "8.12.4"
+  },
+  "devDependencies": {
+    "@deepseek-ai/dsh-attachment": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-authorization": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-fs": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-llm-pi-ai": "0.2.2-rc.5",
+    "@earendil-works/pi-coding-agent": "1.5.0",
+    "@types/node": "^24.10.0",
+    "@types/turndown": "^5.0.6",
+    "esbuild": "^0.27.0",
+    "pi-antigravity": "0.15.0",
+    "tsx": "^4.21.0",
+    "typebox": "^1.4.6",
+    "typescript": "^6.0.3"
+  }
+}
