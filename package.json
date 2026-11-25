@@ -16,9 +16,7 @@
     "dist/index.js",
     "dist/client.js",
     "cordis.patch.yml",
-    "README.md",
-    "LICENSE",
-    "CHANGELOG.md"
+    "LICENSE"
   ],
   "dsh": {
     "bundle": {
