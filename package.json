@@ -1,7 +1,7 @@
 {
   "name": "dsh-antigravity",
   "version": "0.2.0-beta.3",
-  "description": "DeepSeek Harness frontend for local Antigravity CLI sessions",
+  "description": "在 DeepSeek Harness 中使用本机 Antigravity CLI 选择模型、发送消息并查看流式回复。",
   "type": "module",
   "license": "MIT",
   "engines": {
